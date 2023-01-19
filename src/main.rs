@@ -19,7 +19,11 @@ async fn main() {
                 let name = get_name(callsign).await.unwrap();
                 Ok(Response::builder()
                     .header(CONTENT_TYPE, "text/html; charset=UTF-8")
-                    .body(name)
+                    .body(if name.is_empty() {
+                        format!("{} için kayıt bulunamadı.", callsign)
+                    } else {
+                        name
+                    })
                     .unwrap())
             })
             .get("/", |_| async move {
