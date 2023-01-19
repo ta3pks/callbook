@@ -18,6 +18,12 @@ async fn main() {
                 let name = get_name(callsign).await.unwrap();
                 Ok(Response::new(name))
             })
+            .get("/", |_| async move {
+                Ok(Response::builder()
+                    .status(200)
+                    .body("Adres sonuna çağrı işareti girmeyi unuttunuz.".to_string())
+                    .unwrap())
+            })
             .any(|_| async move {
                 Ok(Response::builder()
                     .status(404)
