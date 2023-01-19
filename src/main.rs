@@ -9,7 +9,7 @@ use reqwest::header::CONTENT_TYPE;
 
 #[tokio::main]
 async fn main() {
-    let input_html = r#"<form action="/" id="sign_form"><input type="text" id="callsign"><input type="submit" id="sub" value="Ara"></form>
+    let input_html = r#"<form action="/" id="sign_form"><input type="text" autofocus id="callsign"><input type="submit" id="sub" value="Ara"></form>
 <script>
 window.sign_form.onsubmit = function(e) {
     e.preventDefault();
