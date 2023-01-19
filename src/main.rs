@@ -9,35 +9,51 @@ use reqwest::header::CONTENT_TYPE;
 
 #[tokio::main]
 async fn main() {
+    let input_html = r#"<form action="/" id="sign_form"><input type="text" id="callsign"><input type="submit" id="sub" value="Ara"></form>
+<script>
+window.sign_form.onsubmit = function(e) {
+    e.preventDefault();
+    var sign = window.callsign.value;
+    if (sign) {
+        window.location.href = "/" + sign;
+    }
+};
+</script>
+
+                "#;
     let addr: SocketAddr = "127.0.0.1:64380".parse().unwrap();
     eprintln!("Listening on {}", addr);
     start_server(
         addr,
         Router::<String, String>::builder()
-            .get("/:callsign", |r| async move {
-                let callsign = r.param("callsign").unwrap();
-                let name = get_name(callsign).await.unwrap();
-                Ok(Response::builder()
-                    .header(CONTENT_TYPE, "text/html; charset=UTF-8")
-                    .body(if name.is_empty() {
-                        format!("{} için kayıt bulunamadı.", callsign)
-                    } else {
-                        name
-                    })
-                    .unwrap())
+            .get("/:callsign", |r| {
+                let input_html = input_html.to_string();
+                async move {
+                    let callsign = r.param("callsign").unwrap();
+                    let name = get_name(callsign).await.unwrap();
+                    Ok(Response::builder()
+                        .header(CONTENT_TYPE, "text/html; charset=UTF-8")
+                        .body(if name.is_empty() {
+                            format!("{} için kayıt bulunamadı.{input_html}", callsign)
+                        } else {
+                            format!("{} - {}{input_html}", callsign, name)
+                        })
+                        .unwrap())
+                }
             })
-            .get("/", |_| async move {
-                Ok(Response::builder()
-                    .status(200)
-                    .header(CONTENT_TYPE, "text/html; charset=UTF-8")
-                    .body("Adres sonuna çağrı işareti girmeyi unuttunuz.".to_string())
-                    .unwrap())
+            .get("/", |_| {
+                let input_html = input_html.to_string();
+                async move {
+                    Ok(Response::builder()
+                        .status(200)
+                        .header(CONTENT_TYPE, "text/html; charset=UTF-8")
+                        .body(input_html)
+                        .unwrap())
+                }
             })
-            .any(|_| async move {
-                Ok(Response::builder()
-                    .status(404)
-                    .body("".to_string())
-                    .unwrap())
+            .any(|_| {
+                let input_html = input_html.to_string();
+                async move { Ok(Response::builder().status(200).body(input_html).unwrap()) }
             })
             .options("/*", |_| async move {
                 Ok(Response::builder()
