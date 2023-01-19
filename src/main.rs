@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, net::SocketAddr};
 
 use hyper_req_exts::{
     prelude::Response,
@@ -8,8 +8,10 @@ use hyper_req_exts::{
 
 #[tokio::main]
 async fn main() {
+    let addr: SocketAddr = "127.0.0.1:64380".parse().unwrap();
+    eprintln!("Listening on {}", addr);
     start_server(
-        "127.0.0.1:64380".parse().unwrap(),
+        addr,
         Router::<String, String>::builder()
             .get("/:callsign", |r| async move {
                 let callsign = r.param("callsign").unwrap();
