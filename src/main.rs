@@ -5,6 +5,7 @@ use hyper_req_exts::{
     routerify::{prelude::RequestExt, Router},
     start_server,
 };
+use reqwest::header::CONTENT_TYPE;
 
 #[tokio::main]
 async fn main() {
@@ -16,11 +17,15 @@ async fn main() {
             .get("/:callsign", |r| async move {
                 let callsign = r.param("callsign").unwrap();
                 let name = get_name(callsign).await.unwrap();
-                Ok(Response::new(name))
+                Ok(Response::builder()
+                    .header(CONTENT_TYPE, "text/html; charset=UTF-8")
+                    .body(name)
+                    .unwrap())
             })
             .get("/", |_| async move {
                 Ok(Response::builder()
                     .status(200)
+                    .header(CONTENT_TYPE, "text/html; charset=UTF-8")
                     .body("Adres sonuna çağrı işareti girmeyi unuttunuz.".to_string())
                     .unwrap())
             })
