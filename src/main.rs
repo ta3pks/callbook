@@ -30,10 +30,15 @@ window.sign_form.onsubmit = function(e) {
                 let input_html = input_html.to_string();
                 async move {
                     let callsign = r.param("callsign").unwrap();
-                    let (name, dmr) = tokio::join!(get_name(callsign), get_dmr_data(callsign));
-                    let (name, dmr) = (
+                    let (name, dmr, img) = tokio::join!(
+                        get_name(callsign),
+                        get_dmr_data(callsign),
+                        get_img(callsign)
+                    );
+                    let (name, dmr, img) = (
                         name.unwrap_or_default(),
                         dmr.unwrap_or_default().unwrap_or_default(),
+                        img.unwrap_or_default().unwrap_or_default(),
                     );
                     Ok(Response::builder()
                         .header(CONTENT_TYPE, "text/html; charset=UTF-8")
@@ -54,6 +59,7 @@ window.sign_form.onsubmit = function(e) {
                                 <thead>
                                     <tr>
                                         <th>çağrı işareti</td>
+                                        <th>resim(callbook)</td>
                                         <th>isim(callbook)</td>
                                         <th>isim(dmr)</td>
                                         <th>şehir</td>
@@ -65,6 +71,7 @@ window.sign_form.onsubmit = function(e) {
                             <tbody>
                                 <tr>
                                     <td>{callsign}</td>
+                                    <td><img src="{img}"></td>
                                     <td>{name}</td>
                                     <td>{dmr_fname} {dmr_surname}</td>
                                     <td>{dmr_city}</td>
@@ -175,4 +182,27 @@ async fn get_name(callsign: &str) -> Result<String, Box<dyn Error + 'static + Se
         .map(|m| m.as_str())
         .unwrap_or_default();
     Ok(name.to_string())
+}
+async fn get_img(callsign: &str) -> Result<Option<String>, Box<dyn Error + 'static + Send + Sync>> {
+    let url = format!("http://www.tacallbook.org/imagestr.php?call={}", callsign);
+    let resp = reqwest::Client::new()
+        .get(&url)
+        .header("Referer", "http://www.tacallbook.org/call.shtml")
+        .header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+        .header("Accept-Language", "en-US,en;q=0.7")
+        .header("Connection", "keep-alive")
+        .header("DNT", "1")
+        .header("Sec-GPC", "1")
+        .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36")
+        .send()
+        .await?;
+    let headers = resp.headers();
+    let content_type = headers
+        .get(CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("image/jpg")
+        .to_string();
+    let body = resp.bytes().await?;
+    let body = base64_simd::STANDARD.encode_to_string(&body);
+    Ok(Some(format!("data:{};base64,{}", content_type, body)))
 }
