@@ -29,11 +29,15 @@ window.sign_form.onsubmit = function(e) {
             .get("/:callsign", |r| {
                 let input_html = input_html.to_string();
                 async move {
-                    let callsign = r.param("callsign").unwrap();
+                    let callsign = r
+                        .param("callsign")
+                        .cloned()
+                        .unwrap_or_default()
+                        .to_uppercase();
                     let (name, dmr, img) = tokio::join!(
-                        get_name(callsign),
-                        get_dmr_data(callsign),
-                        get_img(callsign)
+                        get_name(&callsign),
+                        get_dmr_data(&callsign),
+                        get_img(&callsign)
                     );
                     let (name, dmr, img) = (
                         name.unwrap_or_default(),
