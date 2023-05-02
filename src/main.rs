@@ -163,8 +163,6 @@ async fn get_dmr_data(
     Ok(body.results.get(0).cloned())
 }
 async fn get_name(callsign: &str) -> Result<String, Box<dyn Error + 'static + Send + Sync>> {
-    //curl 'http://www.tacallbook.org/cgi-bin/bul1.cgi?ara=TA3KRT' \
-    //-H 'Referer: http://www.tacallbook.org/call.shtml' > out.html
     let url = format!(
         "http://www.tacallbook.org/cgi-bin/bul1.cgi?ara={}",
         callsign
@@ -176,6 +174,11 @@ async fn get_name(callsign: &str) -> Result<String, Box<dyn Error + 'static + Se
         .await?
         .text()
         .await?;
+    let body = if let Some((_, body)) = body.split_once(&callsign.to_uppercase()) {
+        body.to_owned()
+    } else {
+        body
+    };
     lazy_static::lazy_static! {
         static ref RE: regex::Regex = regex::Regex::new(r#">(.*?[\w ]+)</s"#).unwrap();
         // static ref RE: regex::Regex = regex::Regex::new(r#"strong>([\w ]+)</strong>"#).unwrap();
