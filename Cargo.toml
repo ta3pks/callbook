@@ -9,9 +9,9 @@ edition = "2021"
 base64-simd = "0.8.0"
 hyper_req_exts = "0.18.0"
 lazy_static = "1.4.0"
-regex = "1.8.1"
-reqwest = { version = "0.11.17", features = ["json"] }
-serde = { version = "1.0.160", features = ["derive"] }
-tokio = { version = "1.28.0", features = ["macros", "full"] }
+regex = "1.10.3"
+reqwest = { version = "0.11.24", features = ["json"] }
+serde = { version = "1.0.196", features = ["derive"] }
+tokio = { version = "1.36.0", features = ["macros", "full"] }
 [target.'cfg(target_os = "linux")'.dependencies]
-openssl = { version = "0.10.52", features = ["vendored"] }
+openssl = { version = "0.10.63", features = ["vendored"] }
