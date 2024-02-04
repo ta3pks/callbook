@@ -1,14 +1,11 @@
-use std::{error::Error, net::SocketAddr};
+use axum::extract::Path;
+use axum::{middleware::map_response, response::Response, routing::get};
+use std::error::Error;
 
-use hyper_req_exts::{
-    prelude::Response,
-    routerify::{prelude::RequestExt, Router},
-    start_server,
-};
 use reqwest::header::CONTENT_TYPE;
 
-#[tokio::main]
-async fn main() {
+#[shuttle_runtime::main]
+pub async fn main() -> shuttle_axum::ShuttleAxum {
     let input_html = r#"<form action="/" id="sign_form"><input type="text" autofocus id="callsign"><input type="submit" id="sub" value="Ara"></form>
 <script>
 window.sign_form.onsubmit = function(e) {
@@ -21,33 +18,28 @@ window.sign_form.onsubmit = function(e) {
 </script>
 
                 "#;
-    let addr: SocketAddr = "127.0.0.1:64380".parse().unwrap();
-    eprintln!("Listening on {}", addr);
-    start_server(
-        addr,
-        Router::<String, String>::builder()
-            .get("/:callsign", |r| {
+    Ok(axum::Router::new()
+        .route("/", get(|| async { input_html.to_string() }))
+        .route(
+            "/:callsign",
+            get(|Path(callsign): Path<String>| {
                 let input_html = input_html.to_string();
                 async move {
-                    let callsign = r
-                        .param("callsign")
-                        .cloned()
-                        .unwrap_or_default()
-                        .to_uppercase();
-                    let (name, dmr, img) = tokio::join!(
+                    //
+                    let callsign = callsign.to_uppercase();
+                    let (name, dmr, img) = futures::future::join3(
                         get_name(&callsign),
                         get_dmr_data(&callsign),
-                        get_img(&callsign)
-                    );
+                        get_img(&callsign),
+                    )
+                    .await;
                     let (name, dmr, img) = (
                         name.unwrap_or_default(),
                         dmr.unwrap_or_default().unwrap_or_default(),
                         img.unwrap_or_default().unwrap_or_default(),
                     );
-                    Ok(Response::builder()
-                        .header(CONTENT_TYPE, "text/html; charset=UTF-8")
-                        .body::<String>(format!(
-                            r#"
+                    format!(
+                        r#"
                             <style>
                             table, th, td {{
                                 border: 1px solid black;
@@ -87,49 +79,26 @@ window.sign_form.onsubmit = function(e) {
                             </table>
                             {input_html}
                             "#,
-                            callsign = callsign,
-                            name = name,
-                            dmr_fname = dmr.fname,
-                            dmr_surname = dmr.surname,
-                            dmr_city = dmr.city,
-                            dmr_country = dmr.country,
-                            dmr_id = dmr.id,
-                            dmr_state = dmr.state
-                        ))
-                        .unwrap())
+                        callsign = callsign,
+                        name = name,
+                        dmr_fname = dmr.fname,
+                        dmr_surname = dmr.surname,
+                        dmr_city = dmr.city,
+                        dmr_country = dmr.country,
+                        dmr_id = dmr.id,
+                        dmr_state = dmr.state,
+                        img = img,
+                        input_html = input_html
+                    )
                 }
-            })
-            .get("/", |_| {
-                let input_html = input_html.to_string();
-                async move {
-                    Ok(Response::builder()
-                        .status(200)
-                        .header(CONTENT_TYPE, "text/html; charset=UTF-8")
-                        .body(input_html)
-                        .unwrap())
-                }
-            })
-            .any(|_| {
-                let input_html = input_html.to_string();
-                async move { Ok(Response::builder().status(200).body(input_html).unwrap()) }
-            })
-            .options("/*", |_| async move {
-                Ok(Response::builder()
-                    .status(404)
-                    .body("".to_string())
-                    .unwrap())
-            })
-            .err_handler(|err| async move {
-                eprintln!("Error: {}", err);
-                Response::builder()
-                    .status(500)
-                    .body("Internal Server Error".to_string())
-                    .unwrap()
-            })
-            .build()
-            .unwrap(),
-    )
-    .await;
+            }),
+        )
+        .layer(map_response(|mut resp: Response| async {
+            resp.headers_mut()
+                .insert("content-type", "text/html; charset=UTF-8".parse().unwrap());
+            resp
+        }))
+        .into())
 }
 #[derive(Clone, Debug, serde::Deserialize, Default)]
 struct DmrData {
@@ -160,7 +129,7 @@ async fn get_dmr_data(
         .await?
         .json::<Response>()
         .await?;
-    Ok(body.results.get(0).cloned())
+    Ok(body.results.first().cloned())
 }
 async fn get_name(callsign: &str) -> Result<String, Box<dyn Error + 'static + Send + Sync>> {
     let url = format!(
